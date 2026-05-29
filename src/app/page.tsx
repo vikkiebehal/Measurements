@@ -1,11 +1,11 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, Camera, Loader2, ScanLine, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { emptyMeasurements, scanMeasurements } from "@/lib/pose-estimator";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
-import type { CustomerProfile, DetectedLandmarks, Gender, MeasurementSet, PhotoUrls, ScanMetadata } from "@/lib/types";
+import type { CustomerProfile, DetectedLandmarks, Gender, MeasurementSet, PhotoUrls, ScanMetadata, ScanProgress } from "@/lib/types";
 import { measurementLabels, measurementOrder } from "@/lib/types";
 import { feetInchesToCm } from "@/lib/units";
 
@@ -23,6 +23,9 @@ type PhotoFiles = {
   side?: File;
 };
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];
+
 export default function Home() {
   const router = useRouter();
   const [profile, setProfile] = useState<CustomerProfile>(initialProfile);
@@ -31,18 +34,29 @@ export default function Home() {
   const [estimated, setEstimated] = useState<MeasurementSet>(() => emptyMeasurements());
   const [landmarks, setLandmarks] = useState<DetectedLandmarks | null>(null);
   const [scanMetadata, setScanMetadata] = useState<ScanMetadata | null>(null);
+  const [compressedPhotos, setCompressedPhotos] = useState<PhotoFiles>({});
+  const [scanProgress, setScanProgress] = useState<ScanProgress>({
+    stage: "idle",
+    label: "Ready to scan",
+    progress: 0
+  });
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const configured = hasSupabaseConfig();
 
-  const photoPreviews = useMemo(
-    () => ({
-      front: photos.front ? URL.createObjectURL(photos.front) : "",
-      side: photos.side ? URL.createObjectURL(photos.side) : ""
-    }),
-    [photos]
-  );
+  const [photoPreviews, setPhotoPreviews] = useState({ front: "", side: "" });
+
+  useEffect(() => {
+    const front = photos.front ? URL.createObjectURL(photos.front) : "";
+    const side = photos.side ? URL.createObjectURL(photos.side) : "";
+    setPhotoPreviews({ front, side });
+
+    return () => {
+      if (front) URL.revokeObjectURL(front);
+      if (side) URL.revokeObjectURL(side);
+    };
+  }, [photos]);
 
   function updateProfile<K extends keyof CustomerProfile>(key: K, value: CustomerProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
@@ -66,17 +80,22 @@ export default function Home() {
 
     setIsScanning(true);
     setMessage("");
+    setScanProgress({ stage: "uploading", label: "Uploading image...", progress: 0 });
     try {
-      const scan = await scanMeasurements(nextProfile, { front: nextPhotos.front, side: nextPhotos.side });
+      const scan = await scanMeasurements(nextProfile, { front: nextPhotos.front, side: nextPhotos.side }, setScanProgress);
       setEstimated(scan.measurements);
       setMeasurements(scan.measurements);
       setLandmarks(scan.landmarks);
       setScanMetadata(scan.metadata);
+      setCompressedPhotos(scan.compressedPhotos ?? {});
+      setScanProgress({ stage: "complete", label: "Calculating measurements...", progress: 100 });
       return scan;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Image scan failed.");
       setLandmarks(null);
       setScanMetadata(null);
+      setCompressedPhotos({});
+      setScanProgress({ stage: "idle", label: "Ready to scan", progress: 0 });
       return null;
     } finally {
       setIsScanning(false);
@@ -86,9 +105,23 @@ export default function Home() {
   async function handlePhotoChange(key: keyof PhotoFiles, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setMessage("Only JPG and PNG photos are supported.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setMessage("Each photo must be 5MB or smaller.");
+      event.target.value = "";
+      return;
+    }
 
     const nextPhotos = { ...photos, [key]: file };
     setPhotos(nextPhotos);
+    setCompressedPhotos({});
+    setScanMetadata(null);
+    setLandmarks(null);
+    setScanProgress({ stage: "uploading", label: "Uploading image...", progress: nextPhotos.front && nextPhotos.side ? 8 : 0 });
     if (nextPhotos.front && nextPhotos.side) {
       await runScan(profile, nextPhotos);
     }
@@ -119,6 +152,7 @@ export default function Home() {
     let currentLandmarks = landmarks;
     let currentEstimated = estimated;
     let currentMeasurements = measurements;
+    let currentCompressedPhotos = compressedPhotos;
     if (!currentMetadata || !currentLandmarks) {
       const scan = await runScan();
       if (!scan) {
@@ -129,6 +163,7 @@ export default function Home() {
       currentLandmarks = scan.landmarks;
       currentEstimated = scan.measurements;
       currentMeasurements = scan.measurements;
+      currentCompressedPhotos = scan.compressedPhotos ?? {};
     }
 
     setIsSaving(true);
@@ -137,8 +172,8 @@ export default function Home() {
       const supabase = getSupabaseClient();
       const id = crypto.randomUUID();
       const photoUrls: PhotoUrls = {
-        front: (await uploadPhoto(id, "front", photos.front)) ?? "",
-        side: (await uploadPhoto(id, "side", photos.side)) ?? ""
+        front: (await uploadPhoto(id, "front", currentCompressedPhotos.front ?? photos.front)) ?? "",
+        side: (await uploadPhoto(id, "side", currentCompressedPhotos.side ?? photos.side)) ?? ""
       };
       const { error } = await supabase.from("measurement_submissions").insert({
         id,
@@ -247,6 +282,16 @@ export default function Home() {
                     </div>
                   </label>
                 ))}
+              </div>
+            </section>
+
+            <section className="border border-black/10 bg-[#fffaf2]/75 p-5">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <p className="font-semibold">{scanProgress.label}</p>
+                <p className="text-sm font-semibold text-[var(--brass)]">{scanProgress.progress}%</p>
+              </div>
+              <div className="h-2 overflow-hidden bg-black/10">
+                <div className="h-full bg-[var(--brass)] transition-all duration-300" style={{ width: `${scanProgress.progress}%` }} />
               </div>
             </section>
 
@@ -400,7 +445,8 @@ function PhotoInput({
           <Camera className="size-8 text-[var(--sage)]" />
         )}
       </div>
-      <input required type="file" accept="image/*" className="w-full text-sm" onChange={onChange} />
+      <input required type="file" accept="image/jpeg,image/png" className="w-full text-sm" onChange={onChange} />
+      <p className="mt-2 text-xs text-black/50">JPG or PNG, 5MB max. Images are resized to 720px before scanning.</p>
     </label>
   );
 }

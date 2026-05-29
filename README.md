@@ -4,12 +4,13 @@ Full image-scan AI measurement MVP for tailoring intake. The app uses Next.js, T
 
 ## Features
 
-- Customer enters only name, phone, height, and gender.
+- Customer enters only name, phone, height as feet + inches, and gender.
 - Customer uploads front and side full-body photos.
 - MediaPipe Pose detects shoulders, chest/torso area, waist, hips, knees, ankles, wrists, and neck reference points.
-- Height calibrates pixel distances into centimeters.
+- Height is converted internally to centimeters for MediaPipe calibration.
 - OpenCV.js checks image brightness for scan quality.
-- The app estimates shoulder width, chest, waist, hip, sleeve length, shirt length, jacket length, trouser length, inseam, and outseam.
+- The app estimates shoulder width, chest, neck, waist, hip, sleeve length, shirt length, jacket length, trouser length, inseam, outseam, and thigh.
+- Customer-facing measurements, admin summaries, and PDF reports are displayed in inches.
 - Confidence score: High / Medium / Low.
 - Warnings for body not fully visible, tilted photos, arms not relaxed, cropped feet, and poor lighting.
 - Editable final measurements page for tailor correction.

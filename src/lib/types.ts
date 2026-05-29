@@ -72,6 +72,24 @@ export type ScanMetadata = {
   };
 };
 
+export type ScanProgressStage = "idle" | "uploading" | "detecting" | "calculating" | "complete";
+
+export type ScanProgress = {
+  stage: ScanProgressStage;
+  label: string;
+  progress: number;
+};
+
+export type ScanResult = {
+  measurements: MeasurementSet;
+  landmarks: DetectedLandmarks;
+  metadata: ScanMetadata;
+  compressedPhotos?: {
+    front: File;
+    side: File;
+  };
+};
+
 export type MeasurementSubmission = {
   id: string;
   created_at: string;
