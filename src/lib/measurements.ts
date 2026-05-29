@@ -4,6 +4,7 @@ export function createEmptyMeasurements(_profile?: CustomerProfile): Measurement
   return {
     shoulder: 0,
     chest: 0,
+    neck: 0,
     waist: 0,
     hip: 0,
     sleeve: 0,
@@ -11,6 +12,7 @@ export function createEmptyMeasurements(_profile?: CustomerProfile): Measurement
     jacketLength: 0,
     trouserLength: 0,
     inseam: 0,
-    outseam: 0
+    outseam: 0,
+    thigh: 0
   };
 }

@@ -7,6 +7,7 @@ import { downloadMeasurementReport } from "@/lib/pdf";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
 import type { MeasurementSubmission, SubmissionStatus } from "@/lib/types";
 import { measurementLabels, measurementOrder } from "@/lib/types";
+import { formatHeight } from "@/lib/units";
 
 export default function ResultClient({ id }: { id: string }) {
   const [submission, setSubmission] = useState<MeasurementSubmission | null>(null);
@@ -97,7 +98,7 @@ export default function ResultClient({ id }: { id: string }) {
               <h2 className="mb-4 text-lg font-semibold">Customer Details</h2>
               <dl className="grid gap-3 text-sm">
                 <Row label="Phone" value={submission.profile.phone} />
-                <Row label="Height" value={`${submission.profile.height} cm`} />
+                <Row label="Height" value={formatHeight(submission.profile.heightFeet, submission.profile.heightInches, submission.profile.height)} />
                 <Row label="Gender" value={submission.profile.gender.replaceAll("_", " ")} />
                 <Row label="Confidence" value={`${submission.scan_metadata?.confidence ?? "Not available"} (${submission.scan_metadata?.score ?? 0}/100)`} />
               </dl>
@@ -136,11 +137,12 @@ export default function ResultClient({ id }: { id: string }) {
               {measurementOrder.map((key) => (
                 <label key={key}>
                   <span className="label">{measurementLabels[key]}</span>
+                  <div className="relative">
                   <input
-                    className="field"
+                    className="field pr-10"
                     type="number"
                     step="0.5"
-                    value={submission.final_measurements[key]}
+                    value={submission.final_measurements[key] ?? 0}
                     onChange={(event) =>
                       setSubmission({
                         ...submission,
@@ -151,6 +153,8 @@ export default function ResultClient({ id }: { id: string }) {
                       })
                     }
                   />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black/45">in</span>
+                  </div>
                 </label>
               ))}
             </div>

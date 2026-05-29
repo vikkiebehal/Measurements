@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { measurementLabels, measurementOrder, type MeasurementSubmission } from "./types";
+import { formatHeight, formatInches } from "./units";
 
 export function downloadMeasurementReport(submission: MeasurementSubmission) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -23,7 +24,7 @@ export function downloadMeasurementReport(submission: MeasurementSubmission) {
   doc.text(`Gender: ${profile.gender.replaceAll("_", " ")}`, 40, 186);
   doc.text(`Status: ${submission.status}`, 40, 206);
 
-  doc.text(`Height: ${profile.height} cm`, 335, 146);
+  doc.text(`Height: ${formatHeight(profile.heightFeet, profile.heightInches, profile.height)}`, 335, 146);
   doc.text(`Confidence: ${submission.scan_metadata?.confidence ?? "Not available"}`, 335, 166);
   doc.text(`Score: ${submission.scan_metadata?.score ?? 0}/100`, 335, 186);
 
@@ -34,7 +35,7 @@ export function downloadMeasurementReport(submission: MeasurementSubmission) {
   let x = 40;
   let y = 306;
   measurementOrder.forEach((key, index) => {
-    doc.text(`${measurementLabels[key]}: ${finalMeasurements[key]} cm`, x, y);
+    doc.text(`${measurementLabels[key]}: ${formatInches(finalMeasurements[key])}`, x, y);
     y += 24;
     if ((index + 1) % 6 === 0) {
       x = 335;

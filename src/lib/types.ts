@@ -6,12 +6,15 @@ export type CustomerProfile = {
   name: string;
   phone: string;
   height: number;
+  heightFeet: number;
+  heightInches: number;
   gender: Gender;
 };
 
 export type MeasurementKey =
   | "shoulder"
   | "chest"
+  | "neck"
   | "waist"
   | "hip"
   | "sleeve"
@@ -19,7 +22,8 @@ export type MeasurementKey =
   | "jacketLength"
   | "trouserLength"
   | "inseam"
-  | "outseam";
+  | "outseam"
+  | "thigh";
 
 export type MeasurementSet = Record<MeasurementKey, number>;
 
@@ -84,6 +88,7 @@ export type MeasurementSubmission = {
 export const measurementLabels: Record<MeasurementKey, string> = {
   shoulder: "Shoulder Width",
   chest: "Chest",
+  neck: "Neck",
   waist: "Waist",
   hip: "Hip",
   sleeve: "Sleeve Length",
@@ -91,7 +96,8 @@ export const measurementLabels: Record<MeasurementKey, string> = {
   jacketLength: "Jacket Length",
   trouserLength: "Trouser Length",
   inseam: "Inseam",
-  outseam: "Outseam"
+  outseam: "Outseam",
+  thigh: "Thigh"
 };
 
 export const measurementOrder = Object.keys(measurementLabels) as MeasurementKey[];

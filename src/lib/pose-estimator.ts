@@ -10,6 +10,7 @@ import type {
   ScanMetadata,
   ScanWarning
 } from "./types";
+import { measurementsCmToInches } from "./units";
 
 type ScanResult = {
   measurements: MeasurementSet;
@@ -276,6 +277,7 @@ export async function scanMeasurements(profile: CustomerProfile, photos: { front
   const measurements: MeasurementSet = {
     shoulder: roundHalf(clamp(shoulderWidth, 34, 62)),
     chest: roundHalf(clamp(chestWidth * 2 + sideDepth * 1.55, 72, 150)),
+    neck: roundHalf(clamp(shoulderWidth * 0.38 + 20, 30, 52)),
     waist: roundHalf(clamp(waistWidth * 2 + sideDepth * 1.42, 58, 145)),
     hip: roundHalf(clamp(hipWidth * 2 + sideDepth * 1.48, 76, 155)),
     sleeve: roundHalf(clamp(sleeve * 0.95, 46, 76)),
@@ -283,7 +285,8 @@ export async function scanMeasurements(profile: CustomerProfile, photos: { front
     jacketLength: roundHalf(clamp(torso + profile.height * 0.1, 56, 90)),
     trouserLength: roundHalf(clamp(outseam, 86, 124)),
     inseam: roundHalf(clamp(inseam, 60, 98)),
-    outseam: roundHalf(clamp(outseam, 86, 124))
+    outseam: roundHalf(clamp(outseam, 86, 124)),
+    thigh: roundHalf(clamp((hipWidth * 2 + sideDepth * 1.48) * 0.31, 44, 82))
   };
 
   const warnings: ScanWarning[] = [];
@@ -320,7 +323,7 @@ export async function scanMeasurements(profile: CustomerProfile, photos: { front
   );
 
   return {
-    measurements,
+    measurements: measurementsCmToInches(measurements),
     landmarks: {
       front: toLandmarkMap(frontPoints),
       side: toLandmarkMap(sidePoints)
@@ -358,6 +361,7 @@ export function emptyMeasurements(): MeasurementSet {
   return {
     shoulder: 0,
     chest: 0,
+    neck: 0,
     waist: 0,
     hip: 0,
     sleeve: 0,
@@ -365,6 +369,7 @@ export function emptyMeasurements(): MeasurementSet {
     jacketLength: 0,
     trouserLength: 0,
     inseam: 0,
-    outseam: 0
+    outseam: 0,
+    thigh: 0
   };
 }

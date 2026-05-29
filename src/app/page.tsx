@@ -7,11 +7,14 @@ import { emptyMeasurements, scanMeasurements } from "@/lib/pose-estimator";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
 import type { CustomerProfile, DetectedLandmarks, Gender, MeasurementSet, PhotoUrls, ScanMetadata } from "@/lib/types";
 import { measurementLabels, measurementOrder } from "@/lib/types";
+import { feetInchesToCm } from "@/lib/units";
 
 const initialProfile: CustomerProfile = {
   name: "",
   phone: "",
-  height: 175,
+  height: feetInchesToCm(5, 10),
+  heightFeet: 5,
+  heightInches: 10,
   gender: "male"
 };
 
@@ -43,6 +46,16 @@ export default function Home() {
 
   function updateProfile<K extends keyof CustomerProfile>(key: K, value: CustomerProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateHeight(key: "heightFeet" | "heightInches", value: number) {
+    setProfile((current) => {
+      const next = { ...current, [key]: value };
+      return {
+        ...next,
+        height: feetInchesToCm(next.heightFeet, next.heightInches)
+      };
+    });
   }
 
   async function runScan(nextProfile = profile, nextPhotos = photos) {
@@ -168,7 +181,12 @@ export default function Home() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Name" value={profile.name} onChange={(value) => updateProfile("name", value)} required />
                 <Field label="Phone" value={profile.phone} onChange={(value) => updateProfile("phone", value)} required />
-                <Field label="Height (cm)" type="number" value={profile.height} onChange={(value) => updateProfile("height", Number(value))} required />
+                <HeightInput
+                  feet={profile.heightFeet}
+                  inches={profile.heightInches}
+                  onFeetChange={(value) => updateHeight("heightFeet", value)}
+                  onInchesChange={(value) => updateHeight("heightInches", value)}
+                />
                 <Select label="Gender" value={profile.gender} options={["male", "female", "non_binary", "prefer_not_to_say"]} onChange={(value) => updateProfile("gender", value as Gender)} />
               </div>
             </section>
@@ -217,13 +235,16 @@ export default function Home() {
                 {measurementOrder.map((key) => (
                   <label key={key}>
                     <span className="label">{measurementLabels[key]}</span>
+                    <div className="relative">
                     <input
-                      className="field"
+                      className="field pr-10"
                       type="number"
                       step="0.5"
                       value={measurements[key]}
                       onChange={(event) => setMeasurements((current) => ({ ...current, [key]: Number(event.target.value) }))}
                     />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black/45">in</span>
+                    </div>
                   </label>
                 ))}
               </div>
@@ -316,6 +337,46 @@ function Select({
         ))}
       </select>
     </label>
+  );
+}
+
+function HeightInput({
+  feet,
+  inches,
+  onFeetChange,
+  onInchesChange
+}: {
+  feet: number;
+  inches: number;
+  onFeetChange: (value: number) => void;
+  onInchesChange: (value: number) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="label">Height</legend>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="relative">
+          <select className="field pr-10" value={feet} onChange={(event) => onFeetChange(Number(event.target.value))}>
+            {[4, 5, 6, 7].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black/45">ft</span>
+        </label>
+        <label className="relative">
+          <select className="field pr-10" value={inches} onChange={(event) => onInchesChange(Number(event.target.value))}>
+            {Array.from({ length: 12 }, (_, value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black/45">in</span>
+        </label>
+      </div>
+    </fieldset>
   );
 }
 

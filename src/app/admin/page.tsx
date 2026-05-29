@@ -6,6 +6,7 @@ import Link from "next/link";
 import { downloadMeasurementReport } from "@/lib/pdf";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
 import type { MeasurementSubmission, SubmissionStatus } from "@/lib/types";
+import { formatHeight, formatInches } from "@/lib/units";
 
 const statuses: SubmissionStatus[] = ["New", "Reviewed", "Confirmed"];
 
@@ -96,7 +97,7 @@ export default function AdminPage() {
                     <td className="p-4">
                       <p className="font-semibold">{item.profile.name}</p>
                       <p className="mt-1 text-black/60">{item.profile.phone}</p>
-                      <p className="text-black/60">{item.profile.height} cm · {item.profile.gender.replaceAll("_", " ")}</p>
+                      <p className="text-black/60">{formatHeight(item.profile.heightFeet, item.profile.heightInches, item.profile.height)} · {item.profile.gender.replaceAll("_", " ")}</p>
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
@@ -155,5 +156,5 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 
 function summary(measurements: MeasurementSubmission["final_measurements"]) {
-  return `Shoulder ${measurements.shoulder} · Chest ${measurements.chest} · Waist ${measurements.waist} · Inseam ${measurements.inseam}`;
+  return `Shoulder ${formatInches(measurements.shoulder)} · Chest ${formatInches(measurements.chest)} · Waist ${formatInches(measurements.waist)} · Inseam ${formatInches(measurements.inseam)}`;
 }
