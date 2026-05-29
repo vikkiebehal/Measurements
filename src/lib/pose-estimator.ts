@@ -234,6 +234,26 @@ function visibility(points: NormalizedLandmark[], indexes: number[]) {
   return indexes.reduce((sum, index) => sum + (points[index]?.visibility ?? 0), 0) / indexes.length;
 }
 
+function hasVisible(points: NormalizedLandmark[], indexes: number[], threshold = 0.28) {
+  return indexes.some((index) => (points[index]?.visibility ?? 0) >= threshold);
+}
+
+function groupDebug(points: NormalizedLandmark[], groups: Record<string, number[]>) {
+  const detected: string[] = [];
+  const missing: string[] = [];
+
+  Object.entries(groups).forEach(([name, indexes]) => {
+    if (hasVisible(points, indexes)) detected.push(name);
+    else missing.push(name);
+  });
+
+  return {
+    detected,
+    missing,
+    coverage: detected.length / Object.keys(groups).length
+  };
+}
+
 function bodyBounds(points: NormalizedLandmark[]) {
   const visible = points.filter((point) => (point.visibility ?? 0) > 0.35);
   return {
@@ -335,17 +355,46 @@ function calculateMeasurements(
   const armGap = Math.min(horizontalDistance(leftWrist, leftHip, front.width), horizontalDistance(rightWrist, rightHip, front.width)) * cmPerPx;
   const coreVisibility = visibility(frontPoints, [11, 12, 23, 24, 25, 26, 27, 28]);
 
-  if (bounds.minY > 0.04 || bounds.maxY < 0.93) warnings.push(warning("BODY_NOT_FULLY_VISIBLE", "Body is not fully visible from head to feet."));
-  if (frontTiltDegrees > 8 || sideTiltDegrees > 10) warnings.push(warning("PHOTO_TILTED", "Photo angle appears tilted; stand straight with the camera level."));
+  const requiredGroups = {
+    "head or shoulders": [0, 11, 12],
+    hips: [23, 24],
+    knees: [25, 26],
+    "ankles or feet": [27, 28, 29, 30, 31, 32]
+  };
+  const sideGroups = {
+    shoulders: [11, 12],
+    hips: [23, 24],
+    "knees or ankles": [25, 26, 27, 28]
+  };
+  const frontDebug = groupDebug(frontPoints, requiredGroups);
+  const sideDebug = groupDebug(sidePoints, sideGroups);
+  const landmarkCoverage = Math.round(frontDebug.coverage * 100);
+  const footY = Math.max(leftAnkle.y, rightAnkle.y);
+  const feetCloseToBottom = footY > 0.92 || bounds.maxY > 0.92;
+  const anklesVisible = hasVisible(frontPoints, [27, 28]);
+  const headDetected = hasVisible(frontPoints, [0]) || hasVisible(frontPoints, [11, 12]);
+
+  if (!headDetected) warnings.push(warning("HEAD_NOT_DETECTED", "Head not detected."));
+  if (feetCloseToBottom && anklesVisible) warnings.push(warning("FEET_CROPPED", "Feet too close to bottom edge."));
+  if (frontDebug.coverage < 1 && frontDebug.coverage >= 0.7) {
+    warnings.push(warning("BODY_NOT_FULLY_VISIBLE", `Some landmarks are unclear: ${frontDebug.missing.join(", ")}.`));
+  }
+  if (sideDebug.coverage < 0.67) warnings.push(warning("SIDE_POSE_NOT_CLEAR", "Side pose not clear."));
+  if (frontTiltDegrees > 12 || sideTiltDegrees > 14) warnings.push(warning("PHOTO_TILTED", "Photo angle appears tilted; stand straight with the camera level."));
   if (armGap < 5 || visibility(frontPoints, [15, 16]) < 0.55) warnings.push(warning("ARMS_NOT_RELAXED", "Arms do not appear relaxed and visible beside the body."));
-  if (feetVisibility < 0.55 || Math.max(leftAnkle.y, rightAnkle.y) > 0.97) warnings.push(warning("FEET_CROPPED", "Feet or ankles appear cropped."));
   if (front.brightness < 55 || side.brightness < 55 || front.brightness > 225 || side.brightness > 225) warnings.push(warning("LIGHTING_POOR", "Lighting is too dark or overexposed for reliable scanning."));
 
-  if (warnings.some((item) => ["BODY_NOT_FULLY_VISIBLE", "FEET_CROPPED", "LIGHTING_POOR", "PHOTO_TILTED"].includes(item.code))) {
-    throw new Error(warnings[0].message);
+  if (frontDebug.coverage < 0.7) {
+    throw new Error(`Full body landmarks are incomplete. Missing: ${frontDebug.missing.join(", ")}.`);
+  }
+  if (front.brightness < 45 || side.brightness < 45) {
+    throw new Error("Lighting is too dark or overexposed for reliable scanning.");
+  }
+  if (sideDebug.coverage < 0.34) {
+    throw new Error("Side pose not clear.");
   }
 
-  const score = clamp(Math.round(coreVisibility * 58 + feetVisibility * 18 + Math.min(front.brightness, side.brightness) / 5 - warnings.length * 8), 0, 100);
+  const score = clamp(Math.round(coreVisibility * 48 + feetVisibility * 14 + frontDebug.coverage * 24 + Math.min(front.brightness, side.brightness) / 7 - warnings.length * 7), 0, 100);
   const metadata: ScanMetadata = {
     engine: "mediapipe_pose_opencv",
     confidence: confidenceLevel(score),
@@ -358,6 +407,11 @@ function calculateMeasurements(
       sideBrightness: Math.round(side.brightness),
       frontTiltDegrees: Number(frontTiltDegrees.toFixed(1)),
       sideTiltDegrees: Number(sideTiltDegrees.toFixed(1))
+    },
+    debug: {
+      landmarkCoverage,
+      missingLandmarks: [...frontDebug.missing, ...sideDebug.missing.map((item) => `side ${item}`)],
+      detectedLandmarks: [...frontDebug.detected, ...sideDebug.detected.map((item) => `side ${item}`)]
     }
   };
 

@@ -125,6 +125,13 @@ export default function ResultClient({ id }: { id: string }) {
               ) : (
                 <p className="text-sm text-black/60">No warnings recorded.</p>
               )}
+              {submission.scan_metadata?.debug ? (
+                <div className="mt-4 border-t border-black/10 pt-4 text-xs leading-5 text-black/55">
+                  <p className="font-semibold text-black/70">Debug landmark coverage: {submission.scan_metadata.debug.landmarkCoverage}%</p>
+                  <p>Detected: {submission.scan_metadata.debug.detectedLandmarks.join(", ") || "none"}</p>
+                  <p>Missing: {submission.scan_metadata.debug.missingLandmarks.join(", ") || "none"}</p>
+                </div>
+              ) : null}
             </div>
           </section>
 

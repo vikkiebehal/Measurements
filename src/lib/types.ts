@@ -38,7 +38,10 @@ export type ScanWarningCode =
   | "PHOTO_TILTED"
   | "ARMS_NOT_RELAXED"
   | "FEET_CROPPED"
-  | "LIGHTING_POOR";
+  | "LIGHTING_POOR"
+  | "HEAD_NOT_DETECTED"
+  | "SIDE_POSE_NOT_CLEAR"
+  | "LANDMARK_COVERAGE_LOW";
 
 export type ScanWarning = {
   code: ScanWarningCode;
@@ -69,6 +72,11 @@ export type ScanMetadata = {
     sideBrightness: number;
     frontTiltDegrees: number;
     sideTiltDegrees: number;
+  };
+  debug?: {
+    landmarkCoverage: number;
+    missingLandmarks: string[];
+    detectedLandmarks: string[];
   };
 };
 

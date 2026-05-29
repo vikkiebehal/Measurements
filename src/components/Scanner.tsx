@@ -315,6 +315,13 @@ export default function Home() {
               ) : (
                 <p className="text-sm text-black/60">{scanMetadata ? "No scan warnings detected." : "Upload both photos to scan for visibility, angle, arms, feet, and lighting."}</p>
               )}
+              {scanMetadata?.debug ? (
+                <div className="mt-4 border-t border-black/10 pt-4 text-xs leading-5 text-black/55">
+                  <p className="font-semibold text-black/70">Debug landmark coverage: {scanMetadata.debug.landmarkCoverage}%</p>
+                  <p>Detected: {scanMetadata.debug.detectedLandmarks.join(", ") || "none"}</p>
+                  <p>Missing: {scanMetadata.debug.missingLandmarks.join(", ") || "none"}</p>
+                </div>
+              ) : null}
             </section>
 
             {message ? <p className="border border-[var(--oxblood)]/25 bg-white/70 p-3 text-sm text-[var(--oxblood)]">{message}</p> : null}
